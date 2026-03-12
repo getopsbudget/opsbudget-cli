@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,18 +18,37 @@ const (
 	authURL      = "https://opsbudget.com/cli-auth"
 )
 
+func generateState() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generating state: %w", err)
+	}
+	return hex.EncodeToString(b), nil
+}
+
 // Login opens the browser for authentication and waits for the callback token.
 func Login() (string, error) {
+	state, err := generateState()
+	if err != nil {
+		return "", err
+	}
+
 	tokenCh := make(chan string, 1)
 	errCh := make(chan error, 1)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != state {
+			http.Error(w, "invalid state parameter", http.StatusForbidden)
+			return
+		}
+
 		token := r.URL.Query().Get("token")
 		if token == "" {
 			http.Error(w, "missing token", http.StatusBadRequest)
 			return
 		}
+
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprint(w, `<!DOCTYPE html><html><body style="font-family:system-ui;text-align:center;padding:60px">
 <h2>✓ Logged in to OpsBudget</h2>
@@ -49,7 +70,7 @@ func Login() (string, error) {
 	}()
 	defer server.Shutdown(context.Background())
 
-	url := fmt.Sprintf("%s?port=%d", authURL, callbackPort)
+	url := fmt.Sprintf("%s?port=%d&state=%s", authURL, callbackPort, state)
 	fmt.Printf("Opening browser to log in...\n")
 	fmt.Printf("If the browser doesn't open, visit:\n  %s\n\n", url)
 

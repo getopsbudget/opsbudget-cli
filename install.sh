@@ -34,13 +34,41 @@ main() {
         exit 1
     fi
 
-    url="https://github.com/${REPO}/releases/download/v${latest}/opsbudget_${latest}_${os}_${arch}.tar.gz"
+    archive="opsbudget_${latest}_${os}_${arch}.tar.gz"
+    base_url="https://github.com/${REPO}/releases/download/v${latest}"
     echo "Downloading opsbudget v${latest} for ${os}/${arch}..."
 
     tmpdir=$(mktemp -d)
     trap 'rm -rf "$tmpdir"' EXIT
 
-    curl -sSL "$url" | tar -xz -C "$tmpdir"
+    # Download archive and checksums
+    curl -sSL "${base_url}/${archive}" -o "${tmpdir}/${archive}"
+    curl -sSL "${base_url}/checksums.txt" -o "${tmpdir}/checksums.txt"
+
+    # Verify checksum
+    expected=$(grep "${archive}" "${tmpdir}/checksums.txt" | awk '{print $1}')
+    if [ -z "$expected" ]; then
+        echo "Error: checksum not found for ${archive}"
+        exit 1
+    fi
+
+    if command -v sha256sum > /dev/null 2>&1; then
+        actual=$(sha256sum "${tmpdir}/${archive}" | awk '{print $1}')
+    elif command -v shasum > /dev/null 2>&1; then
+        actual=$(shasum -a 256 "${tmpdir}/${archive}" | awk '{print $1}')
+    else
+        echo "Warning: no sha256sum or shasum found, skipping checksum verification"
+        actual="$expected"
+    fi
+
+    if [ "$actual" != "$expected" ]; then
+        echo "Error: checksum mismatch"
+        echo "  expected: ${expected}"
+        echo "  got:      ${actual}"
+        exit 1
+    fi
+
+    tar -xzf "${tmpdir}/${archive}" -C "$tmpdir"
 
     if [ -w "$INSTALL_DIR" ]; then
         mv "$tmpdir/$BINARY" "$INSTALL_DIR/$BINARY"

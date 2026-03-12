@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/getopsbudget/opsbudget-cli/internal/api"
 	"github.com/getopsbudget/opsbudget-cli/internal/auth"
@@ -82,7 +83,7 @@ func handleAPIError(err error) bool {
 // resolveMonitorID resolves an ID-or-URL argument to a monitor ID.
 // If the argument looks like a URL, it fetches all monitors and finds the match.
 func resolveMonitorID(client *api.Client, idOrURL string) (string, string, error) {
-	if len(idOrURL) > 0 && (idOrURL[0] == 'h' || idOrURL[0] == 'H') {
+	if strings.Contains(idOrURL, "://") {
 		// Looks like a URL — resolve via list
 		monitors, err := client.ListMonitors()
 		if err != nil {

@@ -30,7 +30,9 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "output as JSON")
 	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
 	rootCmd.AddCommand(loginCmd)
+	rootCmd.AddCommand(logoutCmd)
 	rootCmd.AddCommand(ping.Cmd)
 }
 

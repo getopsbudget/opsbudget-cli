@@ -43,6 +43,9 @@ type CheckRecord struct {
 	StatusCode   int    `json:"status_code"`
 }
 
+// Version is set by the CLI at startup for the User-Agent header.
+var Version = "dev"
+
 // Client is an HTTP client for the OpsBudget API.
 type Client struct {
 	baseURL    string
@@ -113,6 +116,7 @@ func (c *Client) do(method, path string, body, result any) error {
 		return fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("User-Agent", "opsbudget-cli/"+Version)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

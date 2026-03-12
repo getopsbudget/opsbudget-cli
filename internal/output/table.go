@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"text/tabwriter"
+
+	"golang.org/x/term"
 )
 
 const (
@@ -13,6 +15,14 @@ const (
 	colorGreen  = "\033[32m"
 	colorYellow = "\033[33m"
 )
+
+// colorEnabled returns true if color output should be used.
+func colorEnabled() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
 
 // PrintTable prints a formatted table to stdout.
 func PrintTable(headers []string, rows [][]string) {
@@ -40,7 +50,11 @@ func PrintTable(headers []string, rows [][]string) {
 }
 
 // ColorStatus returns a color-coded status string for terminal output.
+// Falls back to plain text when stdout is not a terminal or NO_COLOR is set.
 func ColorStatus(status string) string {
+	if !colorEnabled() {
+		return status
+	}
 	switch status {
 	case "up":
 		return colorGreen + "up" + colorReset

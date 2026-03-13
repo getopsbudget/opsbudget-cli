@@ -42,8 +42,18 @@ main() {
     trap 'rm -rf "$tmpdir"' EXIT
 
     # Download archive and checksums
-    curl -sSL "${base_url}/${archive}" -o "${tmpdir}/${archive}"
-    curl -sSL "${base_url}/checksums.txt" -o "${tmpdir}/checksums.txt"
+    if ! curl -fsSL "${base_url}/${archive}" -o "${tmpdir}/${archive}"; then
+        echo "Error: Failed to download OpsBudget CLI for ${os}_${arch}."
+        echo "This platform may not have a prebuilt binary available."
+        echo "Check https://github.com/getopsbudget/opsbudget-cli/releases for available downloads."
+        exit 1
+    fi
+
+    if ! curl -fsSL "${base_url}/checksums.txt" -o "${tmpdir}/checksums.txt"; then
+        echo "Error: Failed to download checksums file."
+        echo "Check https://github.com/getopsbudget/opsbudget-cli/releases for available downloads."
+        exit 1
+    fi
 
     # Verify checksum
     expected=$(grep "${archive}" "${tmpdir}/checksums.txt" | awk '{print $1}')

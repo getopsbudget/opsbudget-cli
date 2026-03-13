@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 )
 
 type credentials struct {
-	Token   string `json:"token"`
-	SavedAt string `json:"saved_at"`
+	APIKey string `json:"api_key"`
 }
 
 // CredentialsPath returns the path to the credentials file.
@@ -22,8 +21,9 @@ func CredentialsPath() (string, error) {
 	return filepath.Join(configDir, "opsbudget", "credentials.json"), nil
 }
 
-// SaveToken writes the auth token to the credentials file.
-func SaveToken(token string) error {
+// SaveAPIKey writes the API key to the credentials file.
+// The key byte slice is zeroed after writing for security.
+func SaveAPIKey(apiKey string) error {
 	path, err := CredentialsPath()
 	if err != nil {
 		return err
@@ -34,8 +34,7 @@ func SaveToken(token string) error {
 	}
 
 	creds := credentials{
-		Token:   token,
-		SavedAt: time.Now().UTC().Format(time.RFC3339),
+		APIKey: apiKey,
 	}
 	data, err := json.MarshalIndent(creds, "", "  ")
 	if err != nil {
@@ -46,11 +45,16 @@ func SaveToken(token string) error {
 		return fmt.Errorf("writing credentials: %w", err)
 	}
 
+	// Zero the marshaled data.
+	for i := range data {
+		data[i] = 0
+	}
+
 	return nil
 }
 
-// LoadToken reads the auth token from the credentials file.
-func LoadToken() (string, error) {
+// LoadAPIKey reads the API key from the credentials file.
+func LoadAPIKey() (string, error) {
 	path, err := CredentialsPath()
 	if err != nil {
 		return "", err
@@ -69,11 +73,34 @@ func LoadToken() (string, error) {
 		return "", fmt.Errorf("parsing credentials: %w", err)
 	}
 
-	return creds.Token, nil
+	return creds.APIKey, nil
 }
 
-// ClearToken deletes the credentials file.
-func ClearToken() error {
+// ResolveAPIKey returns the API key by checking, in order:
+// 1. OPSBUDGET_API_KEY environment variable
+// 2. ~/.config/opsbudget/credentials.json file
+func ResolveAPIKey() (string, error) {
+	if key := os.Getenv("OPSBUDGET_API_KEY"); key != "" {
+		return key, nil
+	}
+	return LoadAPIKey()
+}
+
+// ValidateKeyFormat checks that a key has the expected ob_ prefix and length.
+// It trims whitespace before validation and returns the trimmed key.
+func ValidateKeyFormat(key string) (string, error) {
+	key = strings.TrimSpace(key)
+	if !strings.HasPrefix(key, "ob_") {
+		return "", fmt.Errorf("invalid API key: must start with \"ob_\"")
+	}
+	if len(key) != 67 {
+		return "", fmt.Errorf("invalid API key: expected 67 characters, got %d", len(key))
+	}
+	return key, nil
+}
+
+// ClearCredentials deletes the credentials file.
+func ClearCredentials() error {
 	path, err := CredentialsPath()
 	if err != nil {
 		return err
@@ -82,4 +109,18 @@ func ClearToken() error {
 		return fmt.Errorf("removing credentials: %w", err)
 	}
 	return nil
+}
+
+// PrintLoginRequired prints the standard "login required" message to stderr.
+func PrintLoginRequired() {
+	fmt.Fprintln(os.Stderr, "Login required.")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  Sign in to get started:")
+	fmt.Fprintln(os.Stderr, "    opsbudget login")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  Or set an API key:")
+	fmt.Fprintln(os.Stderr, "    export OPSBUDGET_API_KEY=\"your-key\"")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  New to OpsBudget? Sign up free:")
+	fmt.Fprintln(os.Stderr, "    https://opsbudget.com/signup?ref=cli")
 }

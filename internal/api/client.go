@@ -68,6 +68,26 @@ func NewClient(token string) *Client {
 	}
 }
 
+// MeResponse represents the authenticated user's profile.
+type MeResponse struct {
+	UID           string `json:"uid"`
+	Email         string `json:"email"`
+	Plan          string `json:"plan"`
+	MonitorLimit  int    `json:"monitor_limit"`
+	CheckInterval int    `json:"check_interval"`
+}
+
+// GetMe returns the authenticated user's profile.
+func (c *Client) GetMe() (*MeResponse, error) {
+	var resp struct {
+		Data MeResponse `json:"data"`
+	}
+	if err := c.do("GET", "/me", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Data, nil
+}
+
 // CreateMonitor creates a new uptime monitor.
 func (c *Client) CreateMonitor(m *Monitor) (*Monitor, error) {
 	var result Monitor

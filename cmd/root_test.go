@@ -76,7 +76,7 @@ func TestAPIKeyCreateMocked(t *testing.T) {
 		}
 
 		authHeader := r.Header.Get("Authorization")
-		if authHeader != "Bearer test-token-123" {
+		if authHeader != "Bearer ob_test0000000000000000000000000000000000000000000000000000000000000" {
 			t.Errorf("unexpected auth header: %s", authHeader)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -114,21 +114,21 @@ func TestAPIKeyCreateMocked(t *testing.T) {
 	// Point API client at mock server.
 	t.Setenv("OPSBUDGET_API_URL", srv.URL+"/v1")
 
-	// Write temp credentials.
+	// Write temp credentials with new format.
 	tmpDir := t.TempDir()
 	obDir := tmpDir + "/opsbudget"
 	os.MkdirAll(obDir, 0o700)
-	cred := `{"token":"test-token-123","saved_at":"2026-01-01T00:00:00Z"}`
+	cred := `{"api_key":"ob_test0000000000000000000000000000000000000000000000000000000000000"}`
 	os.WriteFile(obDir+"/credentials.json", []byte(cred), 0o600)
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
 
 	// Verify auth setup.
-	token, err := auth.LoadToken()
+	key, err := auth.LoadAPIKey()
 	if err != nil {
-		t.Fatalf("auth.LoadToken failed: %s", err)
+		t.Fatalf("auth.LoadAPIKey failed: %s", err)
 	}
-	if token != "test-token-123" {
-		t.Fatalf("expected test-token-123, got %s", token)
+	if key != "ob_test0000000000000000000000000000000000000000000000000000000000000" {
+		t.Fatalf("expected test key, got %s", key)
 	}
 
 	stdout, _, err := executeCommand("api-key", "create", "--name", "ci-key")
@@ -148,7 +148,7 @@ func TestAPIKeyCreateRequiresName(t *testing.T) {
 	tmpDir := t.TempDir()
 	obDir := tmpDir + "/opsbudget"
 	os.MkdirAll(obDir, 0o700)
-	cred := `{"token":"test-token","saved_at":"2026-01-01T00:00:00Z"}`
+	cred := `{"api_key":"ob_test0000000000000000000000000000000000000000000000000000000000000"}`
 	os.WriteFile(obDir+"/credentials.json", []byte(cred), 0o600)
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
 
@@ -165,6 +165,7 @@ func TestUnauthPing(t *testing.T) {
 	// Use an empty config dir so no credentials are found.
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Setenv("OPSBUDGET_API_KEY", "")
 
 	_, _, err := executeCommand("ping", "list")
 	if err == nil {

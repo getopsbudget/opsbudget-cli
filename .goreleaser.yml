@@ -15,7 +15,7 @@ builds:
 
 archives:
   - format: tar.gz
-    name_template: "opsbudget_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "opsbudget_{{ .Os }}_{{ .Arch }}"
 
 brews:
   - repository:

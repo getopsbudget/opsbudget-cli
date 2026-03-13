@@ -21,6 +21,7 @@ brews:
   - repository:
       owner: getopsbudget
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     name: opsbudget
     homepage: https://opsbudget.com
     description: "CLI for Ping by OpsBudget — uptime monitoring"

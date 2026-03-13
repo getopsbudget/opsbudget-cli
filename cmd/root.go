@@ -38,6 +38,7 @@ func init() {
 	rootCmd.SilenceErrors = true
 	rootCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(logoutCmd)
+	rootCmd.AddCommand(whoamiCmd)
 	rootCmd.AddCommand(ping.Cmd)
 	rootCmd.AddCommand(apikey.Cmd)
 

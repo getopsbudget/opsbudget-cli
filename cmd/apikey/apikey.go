@@ -23,25 +23,17 @@ func init() {
 	Cmd.AddCommand(revokeCmd)
 }
 
-// requireAuth loads the stored token and returns an API client.
+// requireAuth resolves the API key (env var or file) and returns an API client.
 func requireAuth() (*api.Client, error) {
-	token, err := auth.LoadToken()
+	key, err := auth.ResolveAPIKey()
 	if err != nil {
 		return nil, fmt.Errorf("loading credentials: %w", err)
 	}
-	if token == "" {
-		fmt.Fprintln(os.Stderr, "⚡ Login required")
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "  Sign up or log in to get started:")
-		fmt.Fprintln(os.Stderr, "    opsbudget login")
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "  New to OpsBudget? Sign up free:")
-		fmt.Fprintln(os.Stderr, "    https://opsbudget.com/signup?ref=cli")
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "  Docs: https://opsbudget.com/docs")
+	if key == "" {
+		auth.PrintLoginRequired()
 		return nil, fmt.Errorf("not logged in")
 	}
-	return api.NewClient(token), nil
+	return api.NewClient(key), nil
 }
 
 // handleAPIError prints user-friendly messages for common API errors.

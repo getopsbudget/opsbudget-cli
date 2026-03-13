@@ -1,91 +1,52 @@
 package auth
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"net"
-	"net/http"
-	"time"
+	"os"
+	"strings"
 
 	"github.com/pkg/browser"
+	"golang.org/x/term"
 )
 
-const (
-	callbackPort = 9876
-	loginTimeout = 5 * time.Minute
-	authURL      = "https://opsbudget.com/cli-auth"
-)
+const authURL = "https://opsbudget.com/cli-auth"
 
-func generateState() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("generating state: %w", err)
+// OpenAuthPage opens the user's browser to the CLI authentication page.
+func OpenAuthPage() {
+	if err := browser.OpenURL(authURL); err != nil {
+		fmt.Printf("Could not open browser automatically.\nPlease open this URL manually:\n  %s\n\n", authURL)
 	}
-	return hex.EncodeToString(b), nil
 }
 
-// Login opens the browser for authentication and waits for the callback token.
-func Login() (string, error) {
-	state, err := generateState()
+// PromptForAPIKey prints the given prompt and reads a line from stdin
+// with terminal echo disabled (masked input). Returns the trimmed input.
+func PromptForAPIKey(prompt string) (string, error) {
+	fmt.Print(prompt)
+
+	fd := int(os.Stdin.Fd())
+	if term.IsTerminal(fd) {
+		raw, err := term.ReadPassword(fd)
+		fmt.Println() // newline after masked input
+		if err != nil {
+			return "", fmt.Errorf("reading input: %w", err)
+		}
+		key := strings.TrimSpace(string(raw))
+		// Zero the raw bytes.
+		for i := range raw {
+			raw[i] = 0
+		}
+		return key, nil
+	}
+
+	// Non-terminal (piped input): read a line from stdin.
+	var buf [256]byte
+	n, err := os.Stdin.Read(buf[:])
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reading input: %w", err)
 	}
-
-	tokenCh := make(chan string, 1)
-	errCh := make(chan error, 1)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("state") != state {
-			http.Error(w, "invalid state parameter", http.StatusForbidden)
-			return
-		}
-
-		token := r.URL.Query().Get("token")
-		if token == "" {
-			http.Error(w, "missing token", http.StatusBadRequest)
-			return
-		}
-
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, `<!DOCTYPE html><html><body style="font-family:system-ui;text-align:center;padding:60px">
-<h2>✓ Logged in to OpsBudget</h2>
-<p>You can close this window and return to your terminal.</p>
-</body></html>`)
-		tokenCh <- token
-	})
-
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", callbackPort))
-	if err != nil {
-		return "", fmt.Errorf("starting callback server: %w", err)
+	key := strings.TrimSpace(string(buf[:n]))
+	for i := range buf {
+		buf[i] = 0
 	}
-
-	server := &http.Server{Handler: mux}
-	go func() {
-		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
-			errCh <- err
-		}
-	}()
-	defer server.Shutdown(context.Background())
-
-	url := fmt.Sprintf("%s?port=%d&state=%s", authURL, callbackPort, state)
-	fmt.Printf("Opening browser to log in...\n")
-	fmt.Printf("If the browser doesn't open, visit:\n  %s\n\n", url)
-
-	if err := browser.OpenURL(url); err != nil {
-		fmt.Printf("Could not open browser automatically.\nPlease open this URL manually:\n  %s\n\n", url)
-	}
-
-	fmt.Println("Waiting for login...")
-
-	select {
-	case token := <-tokenCh:
-		return token, nil
-	case err := <-errCh:
-		return "", fmt.Errorf("callback server error: %w", err)
-	case <-time.After(loginTimeout):
-		return "", fmt.Errorf("login timed out after %s — please try again", loginTimeout)
-	}
+	return key, nil
 }

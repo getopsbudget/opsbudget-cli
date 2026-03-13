@@ -91,6 +91,49 @@ func (c *Client) DeleteMonitor(id string) error {
 	return c.do("DELETE", "/monitors/"+id, nil, nil)
 }
 
+// APIKey represents an API key returned by the server.
+type APIKey struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Key       string  `json:"key,omitempty"`
+	Prefix    string  `json:"prefix"`
+	CreatedAt string  `json:"created_at"`
+	ExpiresAt *string `json:"expires_at"`
+}
+
+// CreateAPIKeyRequest is the body for POST /api-keys.
+type CreateAPIKeyRequest struct {
+	Name          string `json:"name"`
+	ExpiresInDays *int   `json:"expires_in_days"`
+}
+
+// CreateAPIKey creates a new API key.
+func (c *Client) CreateAPIKey(req *CreateAPIKeyRequest) (*APIKey, error) {
+	var resp struct {
+		Data APIKey `json:"data"`
+	}
+	if err := c.do("POST", "/api-keys", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Data, nil
+}
+
+// ListAPIKeys returns all API keys for the authenticated user.
+func (c *Client) ListAPIKeys() ([]APIKey, error) {
+	var resp struct {
+		Data []APIKey `json:"data"`
+	}
+	if err := c.do("GET", "/api-keys", nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Data, nil
+}
+
+// RevokeAPIKey deletes an API key by ID.
+func (c *Client) RevokeAPIKey(id string) error {
+	return c.do("DELETE", "/api-keys/"+id, nil, nil)
+}
+
 // GetMonitorHistory returns recent check history for a monitor.
 func (c *Client) GetMonitorHistory(id string, limit int) ([]CheckRecord, error) {
 	path := fmt.Sprintf("/monitors/%s/history?limit=%d", id, limit)
